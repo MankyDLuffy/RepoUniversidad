@@ -1,0 +1,125 @@
+
+echo "Apartado 1:"
+
+iptables -t nat -F
+iptables -t filter -F
+
+
+echo "Apartado 2:"
+
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+
+echo "Apartado 3:"
+
+iptables -A OUTPUT -p udp -o enp0s8 --sport 53 -j ACCEPT
+iptables -A OUTPUT -p tcp -o enp0s8 --sport 53 -j ACCEPT
+
+iptables -A INPUT -p udp -i enp0s8 --dport 53 -j ACCEPT
+iptables -A INPUT -p tcp -i enp0s8 --dport 53 -j ACCEPT
+
+
+echo "Apartado 4:"
+
+iptables -A OUTPUT -p udp -o enp0s3 --dport 53 -j ACCEPT
+iptables -A OUTPUT -p tcp -o enp0s3 --dport 53 -j ACCEPT
+
+iptables -A INPUT -p udp -i enp0s3 --sport 53 -j ACCEPT
+iptables -A INPUT -p tcp -i enp0s3 --sport 53 -j ACCEPT
+
+
+echo "Apartado 5:"
+
+iptables -A INPUT -p tcp -m tcp --sport 80 -j ACCEPT
+iptables -A OUTPUT -p tcp -m tcp --dport 80 -j ACCEPT
+
+#Creo que esta sobra porque está puesta en la anterior
+iptables -A INPUT -p udp -m udp --sport 53 -j ACCEPT
+iptables -A OUTPUT -p udp -m udp --dport 53 -j ACCEPT
+
+iptables -A INPUT -p tcp -m tcp --sport 443 -j ACCEPT
+iptables -A OUTPUT -p tcp -m tcp --dport 443 -j ACCEPT
+
+iptables -A FORWARD -p tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -p tcp --sport 80 -j ACCEPT
+
+iptables -A FORWARD -p tcp --dport 53 -j ACCEPT
+iptables -A FORWARD -p tcp --sport 53 -j ACCEPT
+
+iptables -A FORWARD -p tcp --dport 443 -j ACCEPT
+iptables -A FORWARD -p tcp --sport 443 -j ACCEPT
+
+iptables -A FORWARD -p tcp -m tcp --sport 80 -j ACCEPT
+iptables -A FORWARD -p udp -m udp --sport 53 -j ACCEPT
+iptables -A FORWARD -p tcp -m tcp --sport 443 -j ACCEPT
+iptables -A FORWARD -p tcp -m tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -p udp -m udp --dport 53 -j ACCEPT
+iptables -A FORWARD -p tcp -m tcp --dport 443 -j ACCEPT
+
+#Busco servicios de fuera
+iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
+
+
+echo "Apartado 6:"
+
+iptables -A INPUT -p tcp -i 192.168.10.66 --dport 80 -j ACCEPT
+iptables -A OUTPUT -p tcp -o 192.168.10.66 --sport 80 -j ACCEPT
+
+#Creo que estas no son necesarias
+iptables -A INPUT -p tcp -i 192.168.10.130 --dport 80 -j ACCEPT
+iptables -A OUTPUT -p tcp -o 192.168.10.130 --sport 80 -j ACCEPT
+
+#Ofrezco yo el servicio
+iptables -t nat -A PREROUTING -i enp0s3 -j DNAT --to-destination 192.168.10.66
+
+
+echo "Apartado 7:"
+
+#Estas no tiran
+iptables -A INPUT -p tcp -s 192.168.10.66 --dport 0:1023 -j ACCEPT
+iptables -A OUTPUT -p tcp -d 192.168.10.66 --sport 0:1023 -j ACCEPT
+
+#Estás son las buenas en principio
+iptables -A INPUT -p tcp -s 192.168.10.66 --match multiport --dports 0:1023 -j ACCEPT
+iptables -A OUTPUT -p tcp -d 192.168.10.66 --match multiport --sports 0:1023 -j ACCEPT
+
+
+echo "Apartado 8:"
+
+iptables -A INPUT -i enp0s8 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A OUTPUT -o enp0s8 -p icmp --icmp-type echo-reply -j ACCEPT
+
+iptables -A INPUT -i enp0s9 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A OUTPUT -o enp0s9 -p icmp --icmp-type echo-reply -j ACCEPT
+
+iptables -A OUTPUT -o enp0s8 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A INPUT -i enp0s8 -p icmp --icmp-type echo-reply -j ACCEPT
+
+iptables -A OUTPUT -o enp0s9 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A INPUT -i enp0s9 -p icmp --icmp-type echo-reply -j ACCEPT
+
+
+echo "Apartado 9:"
+
+iptables -A FORWARD -i enp0s8 -o enp0s9 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A FORWARD -i enp0s9 -o enp0s8 -p icmp --icmp-type echo-reply -j ACCEPT
+
+
+echo "Apartado 10:"
+
+service syslog restart
+iptables -A INPUT -m string --string '/etc/passwd' --algo bm -j LOG --log-prefix '***** GIRC 2019: GET /ETC/PASSWD *****'
+
+
+echo "Apartado 11:"
+
+iptables -A INPUT -j LOG --log-prefix '***** GIRC 2019: PRACTICA 4 - DESECHADO *****'
+iptables -A INPUT -j DROP
+
+iptables -A OUTPUT -j LOG --log-prefix '***** GIRC 2019: PRACTICA 4 - DESECHADO *****'
+iptables -A OUTPUT -j DROP
+
+iptables -A FORWARD -j LOG --log-prefix '***** GIRC 2019: PRACTICA 4 - DESECHADO *****'
+iptables -A FORWARD -j DROP
